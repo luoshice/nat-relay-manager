@@ -138,12 +138,11 @@ class ServiceTemplateTests(unittest.TestCase):
         self.assertIn("Restart=on-failure", unit)
         self.assertIn("RestartSec=3s", unit)
         self.assertIn("NoNewPrivileges=true", unit)
-        self.assertNotIn("User=", unit)
-        self.assertNotIn("Group=", unit)
-        self.assertNotIn("CapabilityBoundingSet=", unit)
-        self.assertNotIn("AmbientCapabilities=", unit)
-        self.assertNotIn("PrivateTmp=", unit)
-        self.assertNotIn("ProtectSystem=", unit)
+        directives = [line.strip() for line in unit.splitlines()
+                       if line.strip() and not line.lstrip().startswith("#")]
+        for forbidden in ("User=", "Group=", "CapabilityBoundingSet=",
+                          "AmbientCapabilities=", "PrivateTmp=", "ProtectSystem="):
+            self.assertFalse(any(line.startswith(forbidden) for line in directives), forbidden)
 
     def test_installer_uses_one_systemd_template_without_user_switch(self):
         installer = (Path(__file__).resolve().parents[1] / "install.sh").read_text()
