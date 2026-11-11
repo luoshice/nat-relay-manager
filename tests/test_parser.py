@@ -120,7 +120,7 @@ class NodeDisplayNameTests(unittest.TestCase):
             nrm.set_node_display_name(self.state, "us-02", "美国线路")
 
     def test_invalid_display_names_are_rejected(self):
-        for value in ("", "   ", "bad\\nname", "x" * 65):
+        for value in ("", "   ", "bad" + chr(10) + "name", "x" * 65):
             with self.subTest(value=value), self.assertRaises(nrm.NRMError):
                 nrm.validate_display_name(value)
 
