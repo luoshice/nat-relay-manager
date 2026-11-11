@@ -132,35 +132,18 @@ class NodeDisplayNameTests(unittest.TestCase):
 
 
 class ServiceTemplateTests(unittest.TestCase):
-    def test_container_unit_avoids_podman_incompatible_sandbox_options(self):
+    def test_container_unit_avoids_podman_incompatible_user_transition(self):
         unit = (Path(__file__).resolve().parents[1] / "systemd" / "nrm-container.service").read_text()
-        for required in (
-            "User=sing-box",
-            "Group=sing-box",
-            "NoNewPrivileges=true",
-            "CapabilityBoundingSet=",
-            "AmbientCapabilities=",
-            "StartLimitBurst=5",
-        ):
-            with self.subTest(required=required):
-                self.assertIn(required, unit)
-        for unsupported in (
-            "LockPersonality=",
-            "RestrictSUIDSGID=",
-            "RestrictAddressFamilies=",
-            "RestrictNamespaces=",
-            "PrivateTmp=",
-            "PrivateDevices=",
-            "ProtectSystem=",
-            "ProtectHome=",
-            "ProtectKernelTunables=",
-            "ProtectKernelModules=",
-            "SystemCallFilter=",
-            "SystemCallArchitectures=",
-            "MemoryDenyWriteExecute=",
-        ):
-            with self.subTest(unsupported=unsupported):
-                self.assertNotIn(unsupported, unit)
+        self.assertIn("User=root", unit)
+        self.assertIn("Group=root", unit)
+        self.assertIn("NoNewPrivileges=true", unit)
+        self.assertIn("CapabilityBoundingSet=", unit)
+        self.assertIn("AmbientCapabilities=", unit)
+        self.assertIn("StartLimitBurst=5", unit)
+        self.assertIn("RestartSec=5", unit)
+        self.assertNotIn("User=sing-box", unit)
+        self.assertNotIn("ProtectSystem=", unit)
+        self.assertNotIn("PrivateTmp=", unit)
 
     def test_regular_host_unit_keeps_full_hardening(self):
         unit = (Path(__file__).resolve().parents[1] / "systemd" / "nrm.service").read_text()

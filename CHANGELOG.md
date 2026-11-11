@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.4 - 2026-11-12
+
+- Changed the container-only systemd unit to run as container root with an empty capability bounding/ambient set.
+- Avoids systemd's failing `User=sing-box` credential transition observed in the target Podman environment (`Failed to keep CAP_SYS_ADMIN`, `217/USER`).
+- Retains NoNewPrivileges, restrictive umask, restart rate limiting and existing low-memory Go runtime settings.
+- Regular non-container installations continue to run as the dedicated unprivileged sing-box user with full systemd hardening.
+- Documented the container-root tradeoff: this is root inside the container namespace, not host root.
+
 ## 0.3.3 - 2026-11-11
 
 - Simplified the Podman/container systemd unit after reproducing the documented `Failed to keep CAP_SYS_ADMIN` / `217/USER` failure pattern.

@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-VERSION = "0.3.3"
+VERSION = "0.3.4"
 APP = "NAT Relay Manager"
 BASE = Path(os.environ.get("NRM_BASE", "/etc/nrm"))
 STATE_FILE = BASE / "state.json"

@@ -102,7 +102,7 @@ nrm logs
 
 ## 容器环境
 
-安装器会通过 `systemd-detect-virt --container` 检测 Podman、Docker、LXC 等容器。如果处于容器内，NRM 会使用精简兼容 systemd 服务模板：仍以 `sing-box` 专用非 root 用户运行，显式清空 `CapabilityBoundingSet` / `AmbientCapabilities`，保留 `NoNewPrivileges`，不启用可能触发 Podman/systemd namespace 与 capability 兼容问题的 `LockPersonality`、`RestrictSUIDSGID`、`RestrictAddressFamilies`、`PrivateTmp`、`ProtectHome`、`ProtectSystem` 和 `ProtectKernel*` 等服务沙箱项。普通 Debian / Ubuntu 主机继续使用完整隔离模板。容器外层应由服务商或容器运行时负责隔离。
+安装器会通过 `systemd-detect-virt --container` 检测 Podman、Docker、LXC 等容器。如果处于容器内，NRM 会使用容器专用 systemd 服务模板：以**容器内部 root** 启动 sing-box（不是宿主机 root），并显式清空 `CapabilityBoundingSet` / `AmbientCapabilities`，保留 `NoNewPrivileges`、`UMask=0077` 和 systemd 启动频率限制。这样绕过部分容器环境中 systemd `User=sing-box` 阶段触发的 `Failed to keep CAP_SYS_ADMIN` / `217/USER` 错误。容器内部 root 的权限仍受容器运行时和宿主机 namespace/cgroup 限制；该模式的隔离强度低于普通主机专用非 root 用户模式，因此只用于已识别的容器环境。普通 Debian / Ubuntu 主机继续使用 `User=sing-box` 和完整 systemd 隔离模板。
 
 ## 注意
 

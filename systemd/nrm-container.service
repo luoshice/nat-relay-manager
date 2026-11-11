@@ -8,9 +8,10 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-User=sing-box
-Group=sing-box
-UMask=0027
+# Container namespace root, not host root. Drop all Linux capabilities.
+User=root
+Group=root
+UMask=0077
 Environment=GOMEMLIMIT=40MiB
 Environment=GOGC=50
 Environment=GOMAXPROCS=1
