@@ -1,12 +1,16 @@
 # Changelog
 
+## 0.2.0 - 2026-11-11
+
+- Added TCP port mapping registry with add, batch, edit, remove, list and local listener checks.
+- Separated NAT inbound SNI from REALITY handshake.server.
+- Preserved imported upstream SNI and added per-line override/reset.
+- Added backward-compatible defaults for existing schema-v1 state.
+- Safer reinitialization rollback; stopping NRM no longer disables boot startup.
+- Installer no longer disables an existing sing-box.service automatically.
+- Added plain nrm.py source and synchronized gzip/Base64 mirrors.
+- Expanded tests for migration, port rules, SNI and Short ID boundaries.
+
 ## 0.1.0 - 2026-11-11
 
-- Initial project scaffold.
-- One VLESS + TCP + REALITY NAT inbound with one Direct user and up to five Relay users.
-- Strict VLESS TCP + REALITY upstream parser.
-- Username-based route selection and fail-closed default route.
-- UDP rejection for the proxy inbound and TCP-only upstream outbounds.
-- DoH DNS over HTTPS/TCP.
-- VLESS share-link and Mihomo export.
-- Upstream enable/disable/remove, egress tests, backups, diagnostics, systemd and direct-mode service handling.
+- Initial TCP-only VLESS + REALITY NAT relay manager.

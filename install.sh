@@ -15,7 +15,7 @@ case "$ARCH" in x86_64|aarch64) ;; *) die "暂不支持 CPU 架构：$ARCH。" ;
 export DEBIAN_FRONTEND=noninteractive
 log "安装基础依赖……"
 apt-get -o Acquire::Retries=3 update
-apt-get install -y --no-install-recommends ca-certificates curl openssl python3 tar gzip
+apt-get install -y --no-install-recommends ca-certificates curl openssl python3 tar gzip iproute2
 log "添加 sing-box 官方软件源……"
 install -d -m 0755 /etc/apt/keyrings
 curl -fsSL --retry 3 https://sing-box.app/gpg.key -o /etc/apt/keyrings/sagernet.asc
@@ -43,7 +43,9 @@ ARCHIVE="$TMP_DIR/nrm.tar.gz"
 curl -fsSL --retry 3 "https://codeload.github.com/${REPO}/tar.gz/refs/heads/${BRANCH}" -o "$ARCHIVE"
 mkdir -p "$TMP_DIR/src"
 tar -xzf "$ARCHIVE" --strip-components=1 -C "$TMP_DIR/src"
-base64 -d "$TMP_DIR/src/nrm.py.gz.b64" | gzip -dc > "$TMP_DIR/src/nrm.py" || die "NRM Python 源码解压失败。"
+if [[ ! -s "$TMP_DIR/src/nrm.py" ]]; then
+  base64 -d "$TMP_DIR/src/nrm.py.gz.b64" | gzip -dc > "$TMP_DIR/src/nrm.py" || die "NRM Python 源码解压失败。"
+fi
 [[ -s "$TMP_DIR/src/nrm.py" && -s "$TMP_DIR/src/supervisor.sh" ]] || die "下载的项目文件不完整。"
 python3 -m py_compile "$TMP_DIR/src/nrm.py" || die "NRM Python 文件语法检查失败。"
 install -d -m 0755 "$APP_DIR"
@@ -60,7 +62,9 @@ install -d -m 0700 /etc/nrm /run/nrm
 chmod 0600 /var/log/nrm.log
 if ! id sing-box >/dev/null 2>&1; then useradd --system --home-dir /nonexistent --no-create-home --shell /usr/sbin/nologin sing-box; fi
 if [[ -d /run/systemd/system ]] && command -v systemctl >/dev/null 2>&1; then
-  systemctl disable --now sing-box.service >/dev/null 2>&1 || true
+  if systemctl is-active --quiet sing-box.service; then
+    log "检测到已有 sing-box.service 正在运行；NRM 不会自动停用它。若旧服务占用相同监听端口，请先确认后再启动 NRM。"
+  fi
   install -m 0644 "$TMP_DIR/src/systemd/nrm.service" /etc/systemd/system/nrm.service
   systemctl daemon-reload
   log "已安装 systemd 服务。"
