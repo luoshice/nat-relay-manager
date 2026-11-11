@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 - 2026-11-11
+
+- Fixed Podman/container systemd startup by explicitly clearing the service capability bounding and ambient sets.
+- sing-box continues to run as the dedicated `sing-box` user; no Linux capabilities are needed for the configured high TCP listener port or outbound TCP relay.
+- Kept non-privilege hardening controls and the regular-host service template unchanged.
+
 ## 0.3.1 - 2026-11-11
 
 - Detect Podman, Docker, LXC and other systemd-detect-virt container environments during installation.

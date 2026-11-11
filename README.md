@@ -102,7 +102,7 @@ nrm logs
 
 ## 容器环境
 
-安装器会通过 `systemd-detect-virt --container` 检测 Podman、Docker、LXC 等容器。如果处于容器内，NRM 会使用兼容 systemd 服务模板：仍以 `sing-box` 专用用户运行，并保留 `NoNewPrivileges`、`RestrictSUIDSGID`、`LockPersonality` 和地址族限制；不启用需要 mount namespace / `CAP_SYS_ADMIN` 的 `PrivateTmp`、`ProtectHome`、`ProtectSystem` 和 `ProtectKernel*` 隔离项。普通 Debian / Ubuntu 主机继续使用完整隔离模板。容器外层应由服务商或容器运行时负责隔离。
+安装器会通过 `systemd-detect-virt --container` 检测 Podman、Docker、LXC 等容器。如果处于容器内，NRM 会使用兼容 systemd 服务模板：仍以 `sing-box` 专用用户运行，显式清空不需要的 `CapabilityBoundingSet` / `AmbientCapabilities`，并保留 `NoNewPrivileges`、`RestrictSUIDSGID`、`LockPersonality` 和地址族限制；不启用需要 mount namespace / `CAP_SYS_ADMIN` 的 `PrivateTmp`、`ProtectHome`、`ProtectSystem` 和 `ProtectKernel*` 隔离项。普通 Debian / Ubuntu 主机继续使用完整隔离模板。容器外层应由服务商或容器运行时负责隔离。
 
 ## 注意
 
