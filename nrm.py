@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 APP = "NAT Relay Manager"
 BASE = Path(os.environ.get("NRM_BASE", "/etc/nrm"))
 STATE_FILE = BASE / "state.json"
@@ -97,9 +97,12 @@ def migrate_state(state: dict[str, Any]) -> dict[str, Any]:
     state.setdefault("listen_address", "0.0.0.0")
     state.setdefault("handshake_server", state.get("server_name", "www.microsoft.com"))
     state.setdefault("handshake_port", 443)
+    direct_user = state.setdefault("direct_user", {})
+    direct_user.setdefault("display_name", "NAT-Direct")
     for item in state.get("upstreams", []):
         item.setdefault("source_server_name", item.get("server_name", ""))
         item.setdefault("server_name_override", False)
+        item.setdefault("display_name", f"NAT-{item['name']}")
     mappings = state.setdefault("port_mappings", [])
     if not isinstance(mappings, list):
         raise NRMError("端口映射记录格式错误，请先备份配置。")
@@ -161,6 +164,69 @@ def slugify(value: str) -> str:
     if not value:
         raise NRMError("节点名称不能为空，且至少包含一个英文字母或数字。")
     return value[:32]
+
+
+def validate_display_name(value: str) -> str:
+    value = str(value).strip()
+    if not value:
+        raise NRMError("节点显示名称不能为空。")
+    if len(value) > 64:
+        raise NRMError("节点显示名称最多 64 个字符。")
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise NRMError("节点显示名称不能包含控制字符或换行。")
+    return value
+
+
+def node_display_name(state: dict[str, Any], node: str | dict[str, Any]) -> str:
+    if node == "direct":
+        return state.get("direct_user", {}).get("display_name") or "NAT-Direct"
+    if isinstance(node, dict):
+        return node.get("display_name") or f"NAT-{node['name']}"
+    raise NRMError("无法识别节点。")
+
+
+def set_node_display_name(state: dict[str, Any], node_raw: str, display_name: str) -> tuple[str, str]:
+    display_name = validate_display_name(display_name)
+    node_key = node_raw.strip().lower()
+    if node_key in ("direct", "nat-direct"):
+        target = state["direct_user"]
+        key = "direct"
+    else:
+        if node_key.startswith("nat-"):
+            node_key = node_key[4:]
+        name = slugify(node_key)
+        target = next((item for item in state.get("upstreams", []) if item["name"] == name), None)
+        if target is None:
+            raise NRMError(f"未找到节点：{node_raw}")
+        key = name
+
+    other_nodes = [("direct", state["direct_user"])] + [
+        (item["name"], item) for item in state.get("upstreams", [])
+    ]
+    for other_key, other in other_nodes:
+        if other_key == key:
+            continue
+        default_name = "NAT-Direct" if other_key == "direct" else f"NAT-{other_key}"
+        other_name = other.get("display_name") or default_name
+        if other_name.casefold() == display_name.casefold():
+            raise NRMError(f"节点显示名称已被使用：{display_name}")
+
+    target["display_name"] = display_name
+    return key, display_name
+
+
+def rename_node(node_raw: str, display_name: str | None = None) -> None:
+    require_root()
+    state = load_state()
+    if display_name is None:
+        display_name = input("新的节点显示名称：")
+    if not display_name.strip():
+        print("已取消，没有修改。")
+        return
+    key, value = set_node_display_name(state, node_raw, display_name)
+    save_state(state)
+    print(f"节点 {key} 的显示名称已修改为：{value}")
+    print("此修改不会重启 sing-box。运行 nrm export 刷新 VLESS 分享链接；运行 nrm export --format mihomo 刷新 Mihomo 配置。")
 
 
 def generate_reality_keys() -> tuple[str, str]:
@@ -572,7 +638,7 @@ def init_wizard() -> None:
         "public_address": public_address, "public_port": public_port, "listen_port": listen_port,
         "listen_address": "0.0.0.0", "server_name": inbound_sni, "handshake_server": handshake_server,
         "handshake_port": 443, "private_key": private_key, "public_key": public_key, "short_id": short_id,
-        "fingerprint": "chrome", "direct_user": {"name":"nat-direct","uuid":str(uuid.uuid4())},
+        "fingerprint": "chrome", "direct_user": {"name":"nat-direct","uuid":str(uuid.uuid4()),"display_name":"NAT-Direct"},
         "upstreams": [],
         "port_mappings": [{"name":"nrm-proxy","protocol":"TCP","external_port":public_port,"internal_port":listen_port,"note":"NRM VLESS + REALITY 入站"}],
     }
@@ -612,6 +678,7 @@ def import_upstream() -> None:
     parsed = parse_vless_reality(link)
     upstream = {
         "name": name,
+        "display_name": f"NAT-{name}",
         "user_name": user_name,
         "tag": tag,
         "client_uuid": str(uuid.uuid4()),
@@ -704,10 +771,10 @@ def vless_link(state: dict[str, Any], name: str, user_uuid: str) -> str:
 
 def export_links() -> list[str]:
     state = load_state()
-    links = [vless_link(state, "NAT-Direct", state["direct_user"]["uuid"])]
+    links = [vless_link(state, node_display_name(state, "direct"), state["direct_user"]["uuid"])]
     for item in state.get("upstreams", []):
         if item.get("enabled", True):
-            links.append(vless_link(state, f"NAT-{item['name']}", item["client_uuid"]))
+            links.append(vless_link(state, node_display_name(state, item), item["client_uuid"]))
     EXPORT_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(EXPORT_DIR, 0o700)
     target = EXPORT_DIR / "nodes.txt"
@@ -719,8 +786,8 @@ def export_links() -> list[str]:
 def export_mihomo() -> Path:
     state = load_state()
     proxies: list[dict[str, Any]] = []
-    items = [("NAT-Direct", state["direct_user"]["uuid"])]
-    items += [(f"NAT-{item['name']}", item["client_uuid"]) for item in state.get("upstreams", []) if item.get("enabled", True)]
+    items = [(node_display_name(state, "direct"), state["direct_user"]["uuid"])]
+    items += [(node_display_name(state, item), item["client_uuid"]) for item in state.get("upstreams", []) if item.get("enabled", True)]
     for name, user_uuid in items:
         proxy: dict[str, Any] = {
             "name": name,
@@ -817,14 +884,14 @@ def list_nodes() -> None:
     print(f"NAT 入站 SNI：{state['server_name']} | handshake.server：{state['handshake_server']}:{state.get('handshake_port', 443)}")
     print(f"Short ID：{state['short_id']}")
     print("\n节点：")
-    print(f"  {'NAT-Direct':<20} {'启用':<8} {'出口':<24}")
-    print(f"  {'-'*20} {'-'*8} {'-'*24}")
-    print(f"  {'NAT-Direct':<20} {'是':<8} {'NAT 本机 Direct':<24}")
+    print(f"  {'显示名称':<24} {'内部标识':<14} {'启用':<6} {'出口'}")
+    print(f"  {'-'*24} {'-'*14} {'-'*6} {'-'*24}")
+    print(f"  {node_display_name(state, 'direct'):<24} {'direct':<14} {'是':<6} NAT 本机 Direct")
     for item in state.get("upstreams", []):
         status = "是" if item.get("enabled", True) else "否"
         endpoint = f"{item['server']}:{item['server_port']}"
         mode = "手动覆盖" if item.get("server_name_override") else "自动"
-        print(f"  {('NAT-' + item['name']):<20} {status:<8} {endpoint:<24} SNI={item['server_name']}（{mode}）")
+        print(f"  {node_display_name(state, item):<24} {item['name']:<14} {status:<6} {endpoint} SNI={item['server_name']}（{mode}）")
 
 def make_port_mapping(name_raw: str, external_port: int | str, internal_port: int | str, note: str = "") -> dict[str, Any]:
     name = slugify(name_raw)
@@ -1139,6 +1206,7 @@ def menu() -> None:
         print("15) NAT TCP 端口映射管理")
         print("16) 修改 NAT 入站 SNI / handshake.server")
         print("17) 修改美国 VPS 上游 SNI")
+        print("18) 修改节点显示名称")
         print("0) 退出")
         choice = input("请选择：").strip()
         try:
@@ -1164,6 +1232,10 @@ def menu() -> None:
             elif choice == "15": port_menu()
             elif choice == "16": set_nat_sni()
             elif choice == "17": set_upstream_sni(input("线路名称：").strip())
+            elif choice == "18":
+                node_ref = input("节点内部标识（direct / us-01）：").strip()
+                new_name = input("新的显示名称：")
+                rename_node(node_ref, new_name)
             elif choice == "0": return
             else: print("无效选项。")
         except (NRMError, KeyboardInterrupt) as exc:
@@ -1192,6 +1264,9 @@ def main() -> int:
     ns.add_argument("--inbound", help="NAT 入站 SNI"); ns.add_argument("--handshake", help="NAT handshake.server")
     us = sub.add_parser("upstream-sni", help="修改或恢复上游 SNI")
     us.add_argument("name"); us.add_argument("domain", nargs="?"); us.add_argument("--reset", action="store_true")
+    rn = sub.add_parser("rename-node", aliases=["rename"], help="修改节点显示名称")
+    rn.add_argument("name", help="direct、us-01 或 NAT-us-01")
+    rn.add_argument("display_name", help="新的显示名称，支持中文")
     pp = sub.add_parser("port", aliases=["ports"], help="管理 NAT TCP 端口映射")
     ps = pp.add_subparsers(dest="port_action")
     ps.add_parser("list", help="查看规则")
@@ -1225,6 +1300,7 @@ def main() -> int:
         elif args.command == "doctor": doctor()
         elif args.command == "nat-sni": set_nat_sni(args.inbound, args.handshake)
         elif args.command == "upstream-sni": set_upstream_sni(args.name, args.domain, args.reset)
+        elif args.command in ("rename-node", "rename"): rename_node(args.name, args.display_name)
         elif args.command in ("port", "ports"):
             if args.port_action in (None, "list"): port_list()
             elif args.port_action == "add": port_add(args.name,args.external_port,args.internal_port,args.note)

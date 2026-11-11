@@ -19,6 +19,7 @@ sudo bash /tmp/nrm-install.sh
 - 导入每条上游时自动读取 VLESS 链接自己的 SNI；支持手动覆盖和恢复原值。
 - NAT TCP 端口规则：添加、批量添加、编辑、删除、列表、内部监听检查。
 - 上游启停、删除、出口测试、VLESS 分享链接与 Mihomo 导出。
+- 节点显示名称自定义（支持中文），与内部线路标识分离；重命名不会修改 UUID、路由或重启 sing-box。
 - 兼容已有 schema-v1 配置；配置备份、诊断、systemd / direct-mode 服务管理。
 
 ## NAT 端口映射
@@ -55,9 +56,25 @@ nrm nat-sni
 nrm nat-sni --inbound inbound.example.com --handshake handshake.example.com
 nrm upstream-sni us-01 custom.example.com
 nrm upstream-sni us-01 --reset
+nrm rename-node direct "香港 NAT 直连"
+nrm rename-node us-01 "美国洛杉矶 01"
 ```
 
 上游 SNI 默认自动读取导入链接中的 `sni` 参数。手动覆盖只影响指定线路；`--reset` 恢复导入时的原始值。
+
+## 节点显示名称
+
+节点显示名称只影响节点列表、VLESS 分享链接备注和 Mihomo 配置中的节点名称，不改变内部线路标识、UUID、路由或代理协议。支持中文，最长 64 个字符，名称不可重复。旧配置自动补上原有名称作为默认显示名。
+
+```bash
+nrm list
+nrm rename-node direct "香港 NAT 直连"
+nrm rename-node us-01 "美国洛杉矶 01"
+nrm export
+nrm export --format mihomo
+```
+
+也可在交互菜单选择「18) 修改节点显示名称」。修改后无需重启 sing-box；重新导出客户端配置即可看到新名称。
 
 ## 常用命令
 

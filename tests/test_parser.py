@@ -89,4 +89,46 @@ class ConfigBuilderTests(unittest.TestCase):
         self.assertEqual(config["route"]["rules"][0]["network"],["udp"])
 
 
+class NodeDisplayNameTests(unittest.TestCase):
+    def setUp(self):
+        self.state = nrm.migrate_state({
+            "schema_version": 1,
+            "public_address": "nat.example.com",
+            "public_port": 53993,
+            "listen_port": 10000,
+            "server_name": "nat.example.com",
+            "direct_user": {"name": "nat-direct", "uuid": "direct-uuid"},
+            "upstreams": [
+                {"name": "us-01", "server_name": "us.example.com"},
+                {"name": "us-02", "server_name": "us2.example.com"},
+            ],
+        })
+
+    def test_migration_adds_default_display_names(self):
+        self.assertEqual(nrm.node_display_name(self.state, "direct"), "NAT-Direct")
+        self.assertEqual(nrm.node_display_name(self.state, self.state["upstreams"][0]), "NAT-us-01")
+
+    def test_rename_upstream_and_direct(self):
+        self.assertEqual(nrm.set_node_display_name(self.state, "us-01", "美国洛杉矶 01"), ("us-01", "美国洛杉矶 01"))
+        self.assertEqual(nrm.node_display_name(self.state, self.state["upstreams"][0]), "美国洛杉矶 01")
+        nrm.set_node_display_name(self.state, "NAT-Direct", "香港 NAT 直连")
+        self.assertEqual(nrm.node_display_name(self.state, "direct"), "香港 NAT 直连")
+
+    def test_duplicate_display_names_are_rejected(self):
+        nrm.set_node_display_name(self.state, "us-01", "美国线路")
+        with self.assertRaises(nrm.NRMError):
+            nrm.set_node_display_name(self.state, "us-02", "美国线路")
+
+    def test_invalid_display_names_are_rejected(self):
+        for value in ("", "   ", "bad\\nname", "x" * 65):
+            with self.subTest(value=value), self.assertRaises(nrm.NRMError):
+                nrm.validate_display_name(value)
+
+    def test_technical_node_identifier_is_preserved(self):
+        nrm.set_node_display_name(self.state, "us-01", "洛杉矶线路")
+        self.assertEqual(self.state["upstreams"][0]["name"], "us-01")
+
+
+
+
 if __name__=="__main__": unittest.main()
