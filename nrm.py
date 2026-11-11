@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-VERSION = "0.3.4"
+VERSION = "0.3.5"
 APP = "NAT Relay Manager"
 BASE = Path(os.environ.get("NRM_BASE", "/etc/nrm"))
 STATE_FILE = BASE / "state.json"
@@ -424,39 +424,11 @@ def build_config(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def set_base_permissions() -> None:
-    """Allow the dedicated systemd service account to traverse /etc/nrm.
-
-    The directory is group-traversable, while state.json and backups remain
-    root-only. In direct/container mode the directory stays private to root.
-    """
-    if systemd_available():
-        if not shutil.which("getent"):
-            raise NRMError("systemd 模式缺少 getent，无法安全设置 sing-box 配置目录权限。")
-        group_result = subprocess.run(["getent", "group", "sing-box"], text=True, capture_output=True)
-        if group_result.returncode != 0:
-            raise NRMError("未找到 sing-box 系统组。请重新运行安装程序。")
-        try:
-            gid = int(group_result.stdout.strip().split(":")[2])
-            os.chown(BASE, 0, gid)
-            os.chmod(BASE, 0o750)
-        except (ValueError, IndexError, PermissionError) as exc:
-            raise NRMError(f"无法设置 /etc/nrm 目录权限：{exc}") from exc
-    else:
-        os.chmod(BASE, 0o700)
+    """Keep NRM state private to root, matching the root-run sing-box service."""
+    os.chmod(BASE, 0o700)
 
 
 def set_config_permissions(path: Path) -> None:
-    if systemd_available():
-        group_result = subprocess.run(["getent", "group", "sing-box"], text=True, capture_output=True)
-        if group_result.returncode != 0:
-            raise NRMError("未找到 sing-box 系统组，无法授予服务读取配置的权限。")
-        try:
-            gid = int(group_result.stdout.strip().split(":")[2])
-            os.chown(path, 0, gid)
-            os.chmod(path, 0o640)
-            return
-        except (ValueError, IndexError, PermissionError) as exc:
-            raise NRMError(f"无法设置 sing-box 配置文件权限：{exc}") from exc
     os.chmod(path, 0o600)
 
 

@@ -132,25 +132,42 @@ class NodeDisplayNameTests(unittest.TestCase):
 
 
 class ServiceTemplateTests(unittest.TestCase):
-    def test_container_unit_avoids_podman_incompatible_user_transition(self):
-        unit = (Path(__file__).resolve().parents[1] / "systemd" / "nrm-container.service").read_text()
-        self.assertIn("User=root", unit)
-        self.assertIn("Group=root", unit)
-        self.assertIn("NoNewPrivileges=true", unit)
-        self.assertIn("CapabilityBoundingSet=", unit)
-        self.assertIn("AmbientCapabilities=", unit)
-        self.assertIn("StartLimitBurst=5", unit)
-        self.assertIn("RestartSec=5", unit)
-        self.assertNotIn("User=sing-box", unit)
-        self.assertNotIn("ProtectSystem=", unit)
-        self.assertNotIn("PrivateTmp=", unit)
-
-    def test_regular_host_unit_keeps_full_hardening(self):
+    def test_systemd_unit_matches_singbox_lite_container_safe_model(self):
         unit = (Path(__file__).resolve().parents[1] / "systemd" / "nrm.service").read_text()
-        self.assertIn("User=sing-box", unit)
-        self.assertIn("ProtectSystem=strict", unit)
-        self.assertIn("PrivateTmp=true", unit)
-        self.assertIn("ProtectKernelTunables=true", unit)
+        self.assertIn("ExecStart=/usr/local/bin/sing-box run -c /etc/nrm/config.json", unit)
+        self.assertIn("Restart=on-failure", unit)
+        self.assertIn("RestartSec=3s", unit)
+        self.assertIn("NoNewPrivileges=true", unit)
+        self.assertNotIn("User=", unit)
+        self.assertNotIn("Group=", unit)
+        self.assertNotIn("CapabilityBoundingSet=", unit)
+        self.assertNotIn("AmbientCapabilities=", unit)
+        self.assertNotIn("PrivateTmp=", unit)
+        self.assertNotIn("ProtectSystem=", unit)
+
+    def test_installer_uses_one_systemd_template_without_user_switch(self):
+        installer = (Path(__file__).resolve().parents[1] / "install.sh").read_text()
+        self.assertNotIn("useradd --system", installer)
+        self.assertNotIn("systemd-detect-virt", installer)
+        self.assertIn('SERVICE_TEMPLATE="$TMP_DIR/src/systemd/nrm.service"', installer)
+        self.assertNotIn("nrm-container.service", installer)
+
+    def test_permissions_remain_root_only(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory) / "etc-nrm"
+            base.mkdir()
+            config = base / "config.json"
+            config.write_text("{}")
+            old_base = nrm.BASE
+            try:
+                nrm.BASE = base
+                nrm.set_base_permissions()
+                nrm.set_config_permissions(config)
+                self.assertEqual(base.stat().st_mode & 0o777, 0o700)
+                self.assertEqual(config.stat().st_mode & 0o777, 0o600)
+            finally:
+                nrm.BASE = old_base
 
 
 

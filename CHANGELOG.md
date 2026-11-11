@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.5 - 2026-11-12
+
+- Align systemd startup with singbox-lite: omit User=/Group= instead of switching to a dedicated service account.
+- Remove the container-only unit and empty capability bounding directives; use one service template across systemd environments.
+- Keep NRM state/config files root-only (0700/0600) and retain NoNewPrivileges.
+- Stop creating/requiring the sing-box system account.
+- Add regression tests for the service model, installer selection and file permissions.
+
 ## 0.3.4 - 2026-11-12
 
 - Changed the container-only systemd unit to run as container root with an empty capability bounding/ambient set.

@@ -21,7 +21,7 @@ sudo bash /tmp/nrm-install.sh
 - 上游启停、删除、出口测试、VLESS 分享链接与 Mihomo 导出。
 - 节点显示名称自定义（支持中文），与内部线路标识分离；重命名不会修改 UUID、路由或重启 sing-box。
 - 兼容已有 schema-v1 配置；配置备份、诊断、systemd / direct-mode 服务管理。
-- 自动识别 Podman、Docker、LXC 等容器环境，并选择不依赖 CAP_SYS_ADMIN 的兼容服务模板；普通主机保留完整 systemd 隔离。
+- systemd 服务沿用 singbox-lite 的启动方式：不设置 `User=` / `Group=`，避免容器内 systemd 用户切换失败；配置和状态文件保持 root-only 权限。
 
 ## NAT 端口映射
 
@@ -102,7 +102,7 @@ nrm logs
 
 ## 容器环境
 
-安装器会通过 `systemd-detect-virt --container` 检测 Podman、Docker、LXC 等容器。如果处于容器内，NRM 会使用容器专用 systemd 服务模板：以**容器内部 root** 启动 sing-box（不是宿主机 root），并显式清空 `CapabilityBoundingSet` / `AmbientCapabilities`，保留 `NoNewPrivileges`、`UMask=0077` 和 systemd 启动频率限制。这样绕过部分容器环境中 systemd `User=sing-box` 阶段触发的 `Failed to keep CAP_SYS_ADMIN` / `217/USER` 错误。容器内部 root 的权限仍受容器运行时和宿主机 namespace/cgroup 限制；该模式的隔离强度低于普通主机专用非 root 用户模式，因此只用于已识别的容器环境。普通 Debian / Ubuntu 主机继续使用 `User=sing-box` 和完整 systemd 隔离模板。
+NRM 的 systemd 服务不设置 `User=` 或 `Group=`，与 `singbox-lite` 一样使用 systemd 默认运行身份（通常为 root）。这避免 systemd 在 Podman 等容器中执行 `User=sing-box` 时触发 `Failed to keep CAP_SYS_ADMIN` / `217/USER`。与专用非 root 服务账户相比，这种方式的进程权限更高；因此 NRM 将 `/etc/nrm` 目录限制为 `0700`，配置和状态文件限制为 `0600`，并保留 `NoNewPrivileges=true`。容器内 root 仍受容器运行时和宿主机 namespace/cgroup 限制，但不应将其理解为宿主机 root。没有 systemd 的环境继续使用 direct-mode supervisor。
 
 ## 注意
 
