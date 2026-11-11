@@ -65,7 +65,19 @@ if [[ -d /run/systemd/system ]] && command -v systemctl >/dev/null 2>&1; then
   if systemctl is-active --quiet sing-box.service; then
     log "检测到已有 sing-box.service 正在运行；NRM 不会自动停用它。若旧服务占用相同监听端口，请先确认后再启动 NRM。"
   fi
-  install -m 0644 "$TMP_DIR/src/systemd/nrm.service" /etc/systemd/system/nrm.service
+  CONTAINER_KIND=""
+  if command -v systemd-detect-virt >/dev/null 2>&1; then
+    CONTAINER_KIND="$(systemd-detect-virt --container 2>/dev/null || true)"
+  fi
+  if [[ -n "$CONTAINER_KIND" && "$CONTAINER_KIND" != "none" ]]; then
+    SERVICE_TEMPLATE="$TMP_DIR/src/systemd/nrm-container.service"
+    [[ -s "$SERVICE_TEMPLATE" ]] || die "检测到容器环境（$CONTAINER_KIND），但缺少容器兼容服务模板。"
+    log "检测到容器环境：$CONTAINER_KIND；使用不依赖 CAP_SYS_ADMIN 的兼容服务配置。"
+  else
+    SERVICE_TEMPLATE="$TMP_DIR/src/systemd/nrm.service"
+    log "检测到常规 systemd 环境；使用完整服务隔离配置。"
+  fi
+  install -m 0644 "$SERVICE_TEMPLATE" /etc/systemd/system/nrm.service
   systemctl daemon-reload
   log "已安装 systemd 服务。"
 else

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 - 2026-11-11
+
+- Detect Podman, Docker, LXC and other systemd-detect-virt container environments during installation.
+- Install a container-compatible systemd unit that avoids mount-namespace sandbox features requiring CAP_SYS_ADMIN.
+- Keep sing-box running as its dedicated unprivileged user and retain non-namespace hardening controls.
+- Preserve the full hardened unit for regular systemd hosts.
+
 ## 0.3.0 - 2026-11-11
 
 - Added custom display names for NAT-Direct and each upstream, including Chinese names.

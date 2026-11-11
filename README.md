@@ -21,6 +21,7 @@ sudo bash /tmp/nrm-install.sh
 - 上游启停、删除、出口测试、VLESS 分享链接与 Mihomo 导出。
 - 节点显示名称自定义（支持中文），与内部线路标识分离；重命名不会修改 UUID、路由或重启 sing-box。
 - 兼容已有 schema-v1 配置；配置备份、诊断、systemd / direct-mode 服务管理。
+- 自动识别 Podman、Docker、LXC 等容器环境，并选择不依赖 CAP_SYS_ADMIN 的兼容服务模板；普通主机保留完整 systemd 隔离。
 
 ## NAT 端口映射
 
@@ -98,6 +99,10 @@ nrm logs
 ```
 
 仅支持原生 TCP + REALITY；不支持 WS、gRPC、Hysteria2、TUIC、普通 TLS 或 UDP 传输。上游 VPS 需预先部署并提供 VLESS 分享链接。
+
+## 容器环境
+
+安装器会通过 `systemd-detect-virt --container` 检测 Podman、Docker、LXC 等容器。如果处于容器内，NRM 会使用兼容 systemd 服务模板：仍以 `sing-box` 专用用户运行，并保留 `NoNewPrivileges`、`RestrictSUIDSGID`、`LockPersonality` 和地址族限制；不启用需要 mount namespace / `CAP_SYS_ADMIN` 的 `PrivateTmp`、`ProtectHome`、`ProtectSystem` 和 `ProtectKernel*` 隔离项。普通 Debian / Ubuntu 主机继续使用完整隔离模板。容器外层应由服务商或容器运行时负责隔离。
 
 ## 注意
 

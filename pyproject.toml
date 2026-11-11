@@ -1,6 +1,6 @@
 [project]
 name = "nat-relay-manager"
-version = "0.1.0"
+version = "0.3.1"
 description = "TCP-only VLESS/REALITY relay manager for small NAT VPS instances"
 requires-python = ">=3.9"
 license = { text = "MIT" }
