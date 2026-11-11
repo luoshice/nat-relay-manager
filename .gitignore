@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.env
+*.log
+*.bak
+state.json
+config.json
+nodes.txt
+mihomo.yaml
+*.tar.gz
+.DS_Store
