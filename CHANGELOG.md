@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.3 - 2026-11-11
+
+- Simplified the Podman/container systemd unit after reproducing the documented `Failed to keep CAP_SYS_ADMIN` / `217/USER` failure pattern.
+- Removed LockPersonality, RestrictSUIDSGID and RestrictAddressFamilies from the container-only unit; retained the dedicated unprivileged sing-box account, NoNewPrivileges and an empty capability set.
+- Added systemd start-rate limiting to prevent repeated restart loops and log storms.
+- Kept the fully hardened regular-host unit unchanged.
+
 ## 0.3.2 - 2026-11-11
 
 - Fixed Podman/container systemd startup by explicitly clearing the service capability bounding and ambient sets.
