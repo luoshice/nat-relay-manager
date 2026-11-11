@@ -72,10 +72,10 @@ nrm doctor
 
 ## 开发与测试
 
-`nrm.py.gz` 是 Python 主程序源码的 gzip 压缩副本。解压后运行：
+`nrm.py.gz.b64` 是 Python 主程序源码的 gzip+Base64 存档。解码后运行：
 
 ```bash
-gzip -dc nrm.py.gz > nrm.py
+base64 -d nrm.py.gz.b64 | gzip -dc > nrm.py
 python3 -m unittest discover -s tests -v
 python3 -m py_compile nrm.py
 bash -n install.sh supervisor.sh

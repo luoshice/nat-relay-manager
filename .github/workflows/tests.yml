@@ -11,7 +11,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Unpack Python source
-        run: gzip -dc nrm.py.gz > nrm.py
+        run: base64 -d nrm.py.gz.b64 | gzip -dc > nrm.py
       - name: Python syntax
         run: python -m py_compile nrm.py
       - name: Unit tests
